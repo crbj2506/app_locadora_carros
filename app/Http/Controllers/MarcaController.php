@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Marca;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MarcaController extends Controller
 {
@@ -33,7 +34,18 @@ class MarcaController extends Controller
     public function store(Request $request)
     {
         //
-        $marca = $this->marca->create($request->all());
+
+        $request->validate($this->marca->rules(), $this->marca->feedback());
+
+        $imagem = $request->file('imagem');
+        $imagem_urn = $imagem->store('imagens', 'public'); // app/public/ ou app/local
+
+        $marca = $this->marca->create([
+                'nome' => $request->nome,
+                'imagem' => $imagem_urn
+            ]
+        );
+        //No Terminal: php artisan storage:link // Cria o link para "publicar" as imagens do upload; 
         return response()->json($marca, 201);
     }
 
@@ -67,7 +79,34 @@ class MarcaController extends Controller
         if($marca === null){
             return response()->json( ['erro'=>'Impossível realizar a atualização. O recurso solicitado não existe'], 404 );
         }
-        $marca->update($request->all());
+
+        if ($request->method() === 'PATCH') {
+            $regrasDinamicas = array();
+
+            foreach ($marca->rules() as $input => $regra) {
+                if(array_key_exists($input, $request->all())){
+                    $regrasDinamicas[$input] = $regra;
+                }
+            }
+            $request->validate($regrasDinamicas, $marca->feedback());
+        } else {
+            $request->validate($marca->rules(), $marca->feedback());
+        }
+
+        //Caso tenha uma nova imagem, deleta a antiga do disco
+        if($request->file('imagem')){
+            Storage::disk('public')->delete($marca->imagem);
+        }
+
+        $imagem = $request->file('imagem');
+        $imagem_urn = $imagem->store('imagens', 'public'); // app/public/ ou app/local
+        //Exemplo http://127.0.0.1:8000/storage/imagens/dtIujwgyj1huwanbFJ7TfbhOz4cKjvDp5R9qdzOT.png
+
+
+        $marca->update([
+            'nome' => $request->nome,
+            'imagem' => $imagem_urn
+        ]);
         return response()->json($marca, 200);
     }
 
@@ -81,10 +120,13 @@ class MarcaController extends Controller
     {
         //
         $marca = $this->marca->find($id);
-        $marca = $this->marca->find($id);
         if($marca === null){
             return response()->json( ['erro'=>'Impossível realizar a exclusão. O recurso solicitado não existe'], 404 );
         }
+
+        Storage::disk('public')->delete($marca->imagem);
+
+
         $marca->delete();
         return response()->json( ['msg' => 'A marca foi removida com sucesso!'], 200);
     }
