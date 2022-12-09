@@ -101,7 +101,7 @@ return [
     |
     */
 
-    'ttl' => env('JWT_TTL', 60),
+    'ttl' => env('JWT_TTL', 60), // Tempo de expiração do Token // pode ser definido no arquivo .env
 
     /*
     |--------------------------------------------------------------------------
